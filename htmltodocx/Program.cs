@@ -19,35 +19,59 @@ namespace htmltodocx
                 var items = JsonConvert.DeserializeObject<List<MyJsonObject>>(jsonContent);
                 List<string> failedIds = new List<string>();
 
-                if (items != null)
+                // Create a Wordprocessing document.
+                using (WordprocessingDocument wordDocument = WordprocessingDocument.Create(outputFilePath, DocumentFormat.OpenXml.WordprocessingDocumentType.Document))
                 {
-                    foreach (var item in items)
+                    // Add a new main document part.
+                    MainDocumentPart mainPart = wordDocument.AddMainDocumentPart();
+
+                    // Create the document structure.
+                    mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document();
+                    Body body = mainPart.Document.AppendChild(new Body());
+
+                    if (items != null)
                     {
-                        try
+                        foreach (var item in items)
                         {
-                            string combinedHtml = item.AttributeCmsDescription + item.AttributeLmsDescription;
-                            ConvertHtmlToDocx(combinedHtml, outputFilePath);
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"An error occurred with item ID: {item.Id}. Error: {ex.Message}");
-                            failedIds.Add(item.Id);
+                            try
+                            {
+                                // Add a paragraph with the JSON ID
+                                Paragraph idParagraph = new Paragraph();
+                                Run idRun = new Run();
+                                Text idText = new Text($"JSON ID: {item.Id}");
+                                idRun.Append(idText);
+                                idParagraph.Append(idRun);
+                                body.Append(idParagraph);
+
+                                string combinedHtml = item.AttributeCmsDescription + item.AttributeLmsDescription;
+                                // Convert HTML to OpenXml and add to the document
+                                var converter = new HtmlConverter(mainPart);
+                                converter.ParseHtml(combinedHtml);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"An error occurred with item ID: {item.Id}. Error: {ex.Message}");
+                                failedIds.Add(item.Id);
+                            }
                         }
                     }
 
-                    // Handle the list of failed IDs after processing all items
-                    if (failedIds.Count > 0)
+                    // Save the document after adding all the HTML content.
+                    mainPart.Document.Save();
+                }
+
+                // Handle the list of failed IDs after processing all items
+                if (failedIds.Count > 0)
+                {
+                    Console.WriteLine("Failed to convert the following IDs:");
+                    foreach (var id in failedIds)
                     {
-                        Console.WriteLine("Failed to convert the following IDs:");
-                        foreach (var id in failedIds)
-                        {
-                            Console.WriteLine(id);
-                        }
+                        Console.WriteLine(id);
                     }
-                    else
-                    {
-                        Console.WriteLine("All items were converted successfully.");
-                    }
+                }
+                else
+                {
+                    Console.WriteLine("All items were converted successfully.");
                 }
             }
             else
@@ -55,7 +79,6 @@ namespace htmltodocx
                 Console.WriteLine("The input file 'input.json' was not found.");
             }
         }
-
 
         public class MyJsonObject
         {
